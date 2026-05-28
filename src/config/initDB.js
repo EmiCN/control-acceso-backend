@@ -95,9 +95,9 @@ const initDB = async () => {
     await sql.query(`
       INSERT INTO turnos (nombre, hora_inicio, hora_fin)
       SELECT * FROM (VALUES
-        ('Matutino', '06:00:00', '14:00:00'),
-        ('Vespertino', '14:00:00', '22:00:00'),
-        ('Nocturno', '22:00:00', '06:00:00')
+        ('Matutino'::varchar, '06:00:00'::time, '14:00:00'::time),
+        ('Vespertino'::varchar, '14:00:00'::time, '22:00:00'::time),
+        ('Nocturno'::varchar, '22:00:00'::time, '06:00:00'::time)
       ) AS v(nombre, hora_inicio, hora_fin)
       WHERE NOT EXISTS (SELECT 1 FROM turnos LIMIT 1)
     `);
