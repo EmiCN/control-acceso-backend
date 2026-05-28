@@ -1,0 +1,10 @@
+const express = require('express');
+const router = express.Router();
+const { verificarToken, verificarRol } = require('../middlewares/auth');
+const { generarQR, validarQR, obtenerHistorial } = require('../controllers/qrController');
+
+router.get('/generar', verificarToken, verificarRol('empleado', 'administrativo', 'administrador'), generarQR);
+router.post('/validar', verificarToken, verificarRol('policia', 'administrador'), validarQR);
+router.get('/historial', verificarToken, verificarRol('administrador', 'administrativo'), obtenerHistorial);
+
+module.exports = router;
