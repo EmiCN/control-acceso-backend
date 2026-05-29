@@ -40,7 +40,8 @@ const generarQR = async (req, res) => {
     // Guardar el token en la base de datos
     await sql.query`
       INSERT INTO tokens_qr (id_usuario, token, usado, fecha_expiracion)
-      VALUES (${id_usuario}, ${tokenQR}, 0, ${fecha_expiracion})
+      
+      VALUES (${id_usuario}, ${tokenQR}, false, ${fecha_expiracion})
     `;
 
     // Generar la imagen QR en base64
