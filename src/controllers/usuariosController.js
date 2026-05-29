@@ -1,16 +1,14 @@
 const { sql } = require('../config/database');
 const bcrypt = require('bcryptjs');
 
-// Obtener todos los usuarios
 const obtenerUsuarios = async (req, res) => {
   try {
     const resultado = await sql.query`
       SELECT u.id, u.numero_nomina, u.nombre, u.apellido_paterno, 
              u.apellido_materno, u.activo, u.fecha_alta, u.fecha_baja,
-             u.foto_url, r.nombre as rol, t.nombre as turno, p.nombre as puesto
+             u.foto_url, r.nombre as rol, p.nombre as puesto
       FROM usuarios u
       INNER JOIN roles r ON u.id_rol = r.id
-      LEFT JOIN turnos t ON u.id_turno = t.id
       LEFT JOIN puestos p ON u.id_puesto = p.id
       ORDER BY u.fecha_alta DESC
     `;
@@ -21,7 +19,6 @@ const obtenerUsuarios = async (req, res) => {
   }
 };
 
-// Obtener un usuario por ID
 const obtenerUsuarioPorId = async (req, res) => {
   const { id } = req.params;
   try {
@@ -29,11 +26,9 @@ const obtenerUsuarioPorId = async (req, res) => {
       SELECT u.id, u.numero_nomina, u.nombre, u.apellido_paterno,
              u.apellido_materno, u.activo, u.fecha_alta, u.fecha_baja,
              u.foto_url, r.nombre as rol, r.id as id_rol,
-             t.nombre as turno, t.id as id_turno,
              p.nombre as puesto, p.id as id_puesto
       FROM usuarios u
       INNER JOIN roles r ON u.id_rol = r.id
-      LEFT JOIN turnos t ON u.id_turno = t.id
       LEFT JOIN puestos p ON u.id_puesto = p.id
       WHERE u.id = ${id}
     `;
@@ -47,9 +42,8 @@ const obtenerUsuarioPorId = async (req, res) => {
   }
 };
 
-// Crear usuario
 const crearUsuario = async (req, res) => {
-  const { numero_nomina, nombre, apellido_paterno, apellido_materno, contrasena, id_rol, id_turno, id_puesto, foto_url } = req.body;
+  const { numero_nomina, nombre, apellido_paterno, apellido_materno, contrasena, id_rol, id_puesto, foto_url } = req.body;
 
   if (!numero_nomina || !nombre || !apellido_paterno || !contrasena || !id_rol) {
     return res.status(400).json({ mensaje: 'Faltan campos obligatorios' });
@@ -68,8 +62,8 @@ const crearUsuario = async (req, res) => {
     const contrasenaHash = await bcrypt.hash(contrasena, 10);
 
     await sql.query`
-      INSERT INTO usuarios (numero_nomina, nombre, apellido_paterno, apellido_materno, contrasena, id_rol, id_turno, id_puesto, creado_por, foto_url)
-      VALUES (${numero_nomina}, ${nombre}, ${apellido_paterno}, ${apellido_materno}, ${contrasenaHash}, ${id_rol}, ${id_turno}, ${id_puesto}, ${req.usuario.id}, ${foto_url})
+      INSERT INTO usuarios (numero_nomina, nombre, apellido_paterno, apellido_materno, contrasena, id_rol, id_puesto, creado_por, foto_url)
+      VALUES (${numero_nomina}, ${nombre}, ${apellido_paterno}, ${apellido_materno}, ${contrasenaHash}, ${id_rol}, ${id_puesto}, ${req.usuario.id}, ${foto_url})
     `;
 
     await sql.query`
@@ -84,10 +78,9 @@ const crearUsuario = async (req, res) => {
   }
 };
 
-// Modificar usuario
 const modificarUsuario = async (req, res) => {
   const { id } = req.params;
-  const { nombre, apellido_paterno, apellido_materno, id_turno, id_puesto, id_rol } = req.body;
+  const { nombre, apellido_paterno, apellido_materno, id_puesto, id_rol } = req.body;
 
   try {
     const usuarioExiste = await sql.query`SELECT id, id_rol FROM usuarios WHERE id = ${id}`;
@@ -102,7 +95,7 @@ const modificarUsuario = async (req, res) => {
     await sql.query`
       UPDATE usuarios 
       SET nombre = ${nombre}, apellido_paterno = ${apellido_paterno}, 
-          apellido_materno = ${apellido_materno}, id_turno = ${id_turno}, 
+          apellido_materno = ${apellido_materno},
           id_puesto = ${id_puesto}, id_rol = ${id_rol}
       WHERE id = ${id}
     `;
@@ -119,7 +112,6 @@ const modificarUsuario = async (req, res) => {
   }
 };
 
-// Dar de baja usuario
 const darDeBaja = async (req, res) => {
   const { id } = req.params;
 
@@ -149,7 +141,6 @@ const darDeBaja = async (req, res) => {
   }
 };
 
-// Dar de alta usuario
 const darDeAlta = async (req, res) => {
   const { id } = req.params;
 
@@ -170,7 +161,6 @@ const darDeAlta = async (req, res) => {
   }
 };
 
-// Eliminar usuario
 const eliminarUsuario = async (req, res) => {
   const { id } = req.params;
 
