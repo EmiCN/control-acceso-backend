@@ -12,7 +12,7 @@ const generarQR = async (req, res) => {
     // Invalidar tokens anteriores no usados de este usuario
     await sql.query`
       UPDATE tokens_qr SET usado = 1 
-      WHERE id_usuario = ${id_usuario} AND usado = 0
+      WHERE id_usuario = ${id_usuario} AND usado = false
     `;
 
     // Crear un identificador único para este token
