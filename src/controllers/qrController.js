@@ -11,7 +11,7 @@ const generarQR = async (req, res) => {
   try {
     // Invalidar tokens anteriores no usados de este usuario
     await sql.query`
-      UPDATE tokens_qr SET usado = 1 
+      UPDATE tokens_qr SET usado = true 
       WHERE id_usuario = ${id_usuario} AND usado = false
     `;
 
@@ -40,7 +40,6 @@ const generarQR = async (req, res) => {
     // Guardar el token en la base de datos
     await sql.query`
       INSERT INTO tokens_qr (id_usuario, token, usado, fecha_expiracion)
-      
       VALUES (${id_usuario}, ${tokenQR}, false, ${fecha_expiracion})
     `;
 
