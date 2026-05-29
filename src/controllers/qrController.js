@@ -9,19 +9,14 @@ const generarQR = async (req, res) => {
   const id_usuario = req.usuario.id;
 
   try {
-    // Invalidar tokens anteriores no usados de este usuario
     await sql.query`
       UPDATE tokens_qr SET usado = true 
       WHERE id_usuario = ${id_usuario} AND usado = false
     `;
 
-    // Crear un identificador único para este token
     const jti = uuidv4();
-
-    // El token expira en 60 segundos
     const fecha_expiracion = new Date(Date.now() + 60 * 1000);
 
-    // Crear el JWT con los datos del empleado
     const tokenQR = jwt.sign(
       {
         jti,
@@ -37,13 +32,11 @@ const generarQR = async (req, res) => {
       { expiresIn: '60s' }
     );
 
-    // Guardar el token en la base de datos
     await sql.query`
       INSERT INTO tokens_qr (id_usuario, token, usado, fecha_expiracion)
       VALUES (${id_usuario}, ${tokenQR}, false, ${fecha_expiracion})
     `;
 
-    // Generar la imagen QR en base64
     const qrImagen = await qrcode.toDataURL(tokenQR);
 
     res.json({
@@ -68,12 +61,10 @@ const validarQR = async (req, res) => {
   }
 
   try {
-    // Verificar que el JWT sea válido y no haya expirado
     let decoded;
     try {
       decoded = jwt.verify(token, process.env.JWT_SECRET);
     } catch (err) {
-      // Buscar el token en BD para registrar el intento fallido
       const tokenBD = await sql.query`SELECT id, id_usuario FROM tokens_qr WHERE token = ${token}`;
       
       if (tokenBD.recordset.length > 0) {
@@ -90,7 +81,6 @@ const validarQR = async (req, res) => {
       });
     }
 
-    // Buscar el token en la base de datos
     const tokenBD = await sql.query`
       SELECT t.id, t.usado, t.fecha_expiracion,
              u.id as id_usuario, u.nombre, u.apellido_paterno, 
@@ -110,7 +100,6 @@ const validarQR = async (req, res) => {
 
     const registro = tokenBD.recordset[0];
 
-    // Verificar si ya fue usado
     if (registro.usado) {
       await sql.query`
         INSERT INTO accesos (id_usuario, id_token, resultado, motivo_rechazo, registrado_por)
@@ -119,7 +108,6 @@ const validarQR = async (req, res) => {
       return res.status(401).json({ acceso: false, mensaje: 'Este QR ya fue utilizado' });
     }
 
-    // Verificar si el usuario está activo
     if (!registro.activo) {
       await sql.query`
         INSERT INTO accesos (id_usuario, id_token, resultado, motivo_rechazo, registrado_por)
@@ -128,9 +116,8 @@ const validarQR = async (req, res) => {
       return res.status(401).json({ acceso: false, mensaje: 'Usuario inactivo' });
     }
 
-    // Todo correcto — marcar token como usado y registrar acceso exitoso
     await sql.query`
-      UPDATE tokens_qr SET usado = 1, fecha_uso = GETDATE() WHERE id = ${registro.id}
+      UPDATE tokens_qr SET usado = true, fecha_uso = NOW() WHERE id = ${registro.id}
     `;
 
     await sql.query`
@@ -155,7 +142,7 @@ const validarQR = async (req, res) => {
   }
 };
 
-// Obtener historial de accesos (administrador y administrativo)
+// Obtener historial de accesos
 const obtenerHistorial = async (req, res) => {
   try {
     const resultado = await sql.query`
