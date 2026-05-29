@@ -80,10 +80,10 @@ const crearUsuario = async (req, res) => {
 
 const modificarUsuario = async (req, res) => {
   const { id } = req.params;
-  const { nombre, apellido_paterno, apellido_materno, id_puesto, id_rol } = req.body;
+  const { nombre, apellido_paterno, apellido_materno, id_puesto, id_rol, foto_url } = req.body;
 
   try {
-    const usuarioExiste = await sql.query`SELECT id, id_rol FROM usuarios WHERE id = ${id}`;
+    const usuarioExiste = await sql.query`SELECT id, id_rol, nombre, apellido_paterno FROM usuarios WHERE id = ${id}`;
     if (usuarioExiste.recordset.length === 0) {
       return res.status(404).json({ mensaje: 'Usuario no encontrado' });
     }
@@ -92,17 +92,21 @@ const modificarUsuario = async (req, res) => {
       return res.status(403).json({ mensaje: 'No tienes permiso para modificar ese usuario' });
     }
 
+    const anterior = usuarioExiste.recordset[0];
+    const detalle = `${req.usuario.nombre} ${req.usuario.apellido_paterno} modificó a ${anterior.nombre} ${anterior.apellido_paterno}`;
+
     await sql.query`
       UPDATE usuarios 
       SET nombre = ${nombre}, apellido_paterno = ${apellido_paterno}, 
           apellido_materno = ${apellido_materno},
-          id_puesto = ${id_puesto}, id_rol = ${id_rol}
+          id_puesto = ${id_puesto}, id_rol = ${id_rol},
+          foto_url = COALESCE(${foto_url}, foto_url)
       WHERE id = ${id}
     `;
 
     await sql.query`
       INSERT INTO auditoria (id_usuario_accion, accion, tabla_afectada, id_registro_afectado, detalle)
-      VALUES (${req.usuario.id}, 'MODIFICAR_USUARIO', 'usuarios', ${id}, 'Modificó datos del usuario')
+      VALUES (${req.usuario.id}, 'MODIFICAR_USUARIO', 'usuarios', ${id}, ${detalle})
     `;
 
     res.json({ mensaje: 'Usuario modificado correctamente' });
