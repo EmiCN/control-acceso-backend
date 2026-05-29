@@ -7,7 +7,7 @@ const obtenerUsuarios = async (req, res) => {
     const resultado = await sql.query`
       SELECT u.id, u.numero_nomina, u.nombre, u.apellido_paterno, 
              u.apellido_materno, u.activo, u.fecha_alta, u.fecha_baja,
-             r.nombre as rol, t.nombre as turno, p.nombre as puesto
+             u.foto_url, r.nombre as rol, t.nombre as turno, p.nombre as puesto
       FROM usuarios u
       INNER JOIN roles r ON u.id_rol = r.id
       LEFT JOIN turnos t ON u.id_turno = t.id
@@ -28,7 +28,7 @@ const obtenerUsuarioPorId = async (req, res) => {
     const resultado = await sql.query`
       SELECT u.id, u.numero_nomina, u.nombre, u.apellido_paterno,
              u.apellido_materno, u.activo, u.fecha_alta, u.fecha_baja,
-             r.nombre as rol, r.id as id_rol,
+             u.foto_url, r.nombre as rol, r.id as id_rol,
              t.nombre as turno, t.id as id_turno,
              p.nombre as puesto, p.id as id_puesto
       FROM usuarios u
@@ -47,15 +47,14 @@ const obtenerUsuarioPorId = async (req, res) => {
   }
 };
 
-// Crear usuario (solo administrador y administrativo)
+// Crear usuario
 const crearUsuario = async (req, res) => {
-  const { numero_nomina, nombre, apellido_paterno, apellido_materno, contrasena, id_rol, id_turno, id_puesto } = req.body;
+  const { numero_nomina, nombre, apellido_paterno, apellido_materno, contrasena, id_rol, id_turno, id_puesto, foto_url } = req.body;
 
   if (!numero_nomina || !nombre || !apellido_paterno || !contrasena || !id_rol) {
     return res.status(400).json({ mensaje: 'Faltan campos obligatorios' });
   }
 
-  // El administrativo no puede crear administradores ni otros administrativos
   if (req.usuario.rol === 'administrativo' && (id_rol === 1 || id_rol === 2)) {
     return res.status(403).json({ mensaje: 'No tienes permiso para crear ese tipo de usuario' });
   }
@@ -69,11 +68,10 @@ const crearUsuario = async (req, res) => {
     const contrasenaHash = await bcrypt.hash(contrasena, 10);
 
     await sql.query`
-      INSERT INTO usuarios (numero_nomina, nombre, apellido_paterno, apellido_materno, contrasena, id_rol, id_turno, id_puesto, creado_por)
-      VALUES (${numero_nomina}, ${nombre}, ${apellido_paterno}, ${apellido_materno}, ${contrasenaHash}, ${id_rol}, ${id_turno}, ${id_puesto}, ${req.usuario.id})
+      INSERT INTO usuarios (numero_nomina, nombre, apellido_paterno, apellido_materno, contrasena, id_rol, id_turno, id_puesto, creado_por, foto_url)
+      VALUES (${numero_nomina}, ${nombre}, ${apellido_paterno}, ${apellido_materno}, ${contrasenaHash}, ${id_rol}, ${id_turno}, ${id_puesto}, ${req.usuario.id}, ${foto_url})
     `;
 
-    // Registrar en auditoria
     await sql.query`
       INSERT INTO auditoria (id_usuario_accion, accion, tabla_afectada, detalle)
       VALUES (${req.usuario.id}, 'CREAR_USUARIO', 'usuarios', ${`Creó usuario con nómina ${numero_nomina}`})
@@ -97,7 +95,6 @@ const modificarUsuario = async (req, res) => {
       return res.status(404).json({ mensaje: 'Usuario no encontrado' });
     }
 
-    // Administrativo no puede modificar a otros administrativos ni administradores
     if (req.usuario.rol === 'administrativo' && (usuarioExiste.recordset[0].id_rol === 1 || usuarioExiste.recordset[0].id_rol === 2)) {
       return res.status(403).json({ mensaje: 'No tienes permiso para modificar ese usuario' });
     }
@@ -122,7 +119,7 @@ const modificarUsuario = async (req, res) => {
   }
 };
 
-// Dar de baja usuario (desactivar)
+// Dar de baja usuario
 const darDeBaja = async (req, res) => {
   const { id } = req.params;
 
@@ -137,7 +134,7 @@ const darDeBaja = async (req, res) => {
     }
 
     await sql.query`
-      UPDATE usuarios SET activo = 0, fecha_baja = GETDATE() WHERE id = ${id}
+      UPDATE usuarios SET activo = false, fecha_baja = NOW() WHERE id = ${id}
     `;
 
     await sql.query`
@@ -152,13 +149,13 @@ const darDeBaja = async (req, res) => {
   }
 };
 
-// Dar de alta usuario (reactivar)
+// Dar de alta usuario
 const darDeAlta = async (req, res) => {
   const { id } = req.params;
 
   try {
     await sql.query`
-      UPDATE usuarios SET activo = 1, fecha_baja = NULL WHERE id = ${id}
+      UPDATE usuarios SET activo = true, fecha_baja = NULL WHERE id = ${id}
     `;
 
     await sql.query`
@@ -173,7 +170,7 @@ const darDeAlta = async (req, res) => {
   }
 };
 
-// Eliminar usuario (solo administrador)
+// Eliminar usuario
 const eliminarUsuario = async (req, res) => {
   const { id } = req.params;
 
