@@ -148,10 +148,9 @@ const obtenerHistorial = async (req, res) => {
     const resultado = await sql.query`
       SELECT a.id, a.resultado, a.motivo_rechazo, a.fecha_acceso,
              u.nombre, u.apellido_paterno, u.numero_nomina,
-             t.nombre as turno, p.nombre as puesto
+             p.nombre as puesto
       FROM accesos a
       INNER JOIN usuarios u ON a.id_usuario = u.id
-      LEFT JOIN turnos t ON u.id_turno = t.id
       LEFT JOIN puestos p ON u.id_puesto = p.id
       ORDER BY a.fecha_acceso DESC
     `;
