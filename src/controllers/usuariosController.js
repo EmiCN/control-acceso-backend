@@ -180,5 +180,44 @@ const eliminarUsuario = async (req, res) => {
     res.status(500).json({ mensaje: 'Error interno del servidor' });
   }
 };
+const cambiarCredenciales = async (req, res) => {
+  const { id } = req.params;
+  const { numero_nomina, contrasena } = req.body;
 
-module.exports = { obtenerUsuarios, obtenerUsuarioPorId, crearUsuario, modificarUsuario, darDeBaja, darDeAlta, eliminarUsuario };
+  try {
+    const usuarioExiste = await sql.query`SELECT id, id_rol FROM usuarios WHERE id = ${id}`;
+    if (usuarioExiste.recordset.length === 0) {
+      return res.status(404).json({ mensaje: 'Usuario no encontrado' });
+    }
+
+    // Administrativo solo puede cambiar nómina, no contraseña
+    if (req.usuario.rol === 'administrativo' && contrasena) {
+      return res.status(403).json({ mensaje: 'No tienes permiso para cambiar la contraseña' });
+    }
+
+    if (numero_nomina) {
+      const existe = await sql.query`SELECT id FROM usuarios WHERE numero_nomina = ${numero_nomina} AND id != ${id}`;
+      if (existe.recordset.length > 0) {
+        return res.status(400).json({ mensaje: 'Ese número de nómina ya existe' });
+      }
+      await sql.query`UPDATE usuarios SET numero_nomina = ${numero_nomina} WHERE id = ${id}`;
+    }
+
+    if (contrasena && req.usuario.rol === 'administrador') {
+      const hash = await bcrypt.hash(contrasena, 10);
+      await sql.query`UPDATE usuarios SET contrasena = ${hash} WHERE id = ${id}`;
+    }
+
+    await sql.query`
+      INSERT INTO auditoria (id_usuario_accion, accion, tabla_afectada, id_registro_afectado, detalle)
+      VALUES (${req.usuario.id}, 'CAMBIAR_CREDENCIALES', 'usuarios', ${id}, 
+      ${`${req.usuario.nombre} cambió credenciales del usuario ID ${id}`})
+    `;
+
+    res.json({ mensaje: 'Credenciales actualizadas correctamente' });
+  } catch (error) {
+    console.error('Error al cambiar credenciales:', error.message);
+    res.status(500).json({ mensaje: 'Error interno del servidor' });
+  }
+};
+module.exports = { obtenerUsuarios, obtenerUsuarioPorId, crearUsuario, modificarUsuario, darDeBaja, darDeAlta, eliminarUsuario, cambiarCredenciales };
