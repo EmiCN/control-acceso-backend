@@ -220,4 +220,52 @@ const cambiarCredenciales = async (req, res) => {
     res.status(500).json({ mensaje: 'Error interno del servidor' });
   }
 };
-module.exports = { obtenerUsuarios, obtenerUsuarioPorId, crearUsuario, modificarUsuario, darDeBaja, darDeAlta, eliminarUsuario, cambiarCredenciales };
+const crearUsuariosMasivo = async (req, res) => {
+  const { usuarios } = req.body;
+
+  if (!usuarios || !Array.isArray(usuarios) || usuarios.length === 0) {
+    return res.status(400).json({ mensaje: 'No se proporcionaron usuarios' });
+  }
+
+  const resultados = { exitosos: 0, fallidos: 0, errores: [] };
+
+  for (const u of usuarios) {
+    try {
+      if (!u.numero_nomina || !u.nombre || !u.apellido_paterno) {
+        resultados.fallidos++;
+        resultados.errores.push(`Nómina ${u.numero_nomina || 'sin nómina'}: faltan datos obligatorios`);
+        continue;
+      }
+
+      const existe = await sql.query`SELECT id FROM usuarios WHERE numero_nomina = ${u.numero_nomina}`;
+      if (existe.recordset.length > 0) {
+        resultados.fallidos++;
+        resultados.errores.push(`Nómina ${u.numero_nomina}: ya existe`);
+        continue;
+      }
+
+      const contrasenaHash = await bcrypt.hash('12345', 10);
+
+      await sql.query`
+        INSERT INTO usuarios (numero_nomina, nombre, apellido_paterno, apellido_materno, contrasena, id_rol, id_puesto, creado_por)
+        VALUES (${u.numero_nomina}, ${u.nombre}, ${u.apellido_paterno}, ${u.apellido_materno || null}, ${contrasenaHash}, 4, 3, ${req.usuario.id})
+      `;
+
+      resultados.exitosos++;
+    } catch (error) {
+      resultados.fallidos++;
+      resultados.errores.push(`Nómina ${u.numero_nomina}: ${error.message}`);
+    }
+  }
+
+  await sql.query`
+    INSERT INTO auditoria (id_usuario_accion, accion, tabla_afectada, detalle)
+    VALUES (${req.usuario.id}, 'CARGA_MASIVA', 'usuarios', ${`Carga masiva: ${resultados.exitosos} exitosos, ${resultados.fallidos} fallidos`})
+  `;
+
+  res.json({
+    mensaje: `Carga completada: ${resultados.exitosos} usuarios creados, ${resultados.fallidos} fallidos`,
+    ...resultados
+  });
+};
+module.exports = { obtenerUsuarios, obtenerUsuarioPorId, crearUsuario, modificarUsuario, darDeBaja, darDeAlta, eliminarUsuario, cambiarCredenciales, crearUsuariosMasivo };
