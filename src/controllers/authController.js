@@ -14,10 +14,11 @@ const login = async (req, res) => {
     const resultado = await sql.query`
       SELECT u.id, u.numero_nomina, u.nombre, u.apellido_paterno, 
              u.contrasena, u.activo, r.nombre as rol,
-             p.nombre as puesto
+             p.nombre as puesto,d.nombre as departamento
       FROM usuarios u
       INNER JOIN roles r ON u.id_rol = r.id
       LEFT JOIN puestos p ON u.id_puesto = p.id
+      LEFT JOIN departamentos d ON u.id_departamento = d.id
       WHERE u.numero_nomina = ${numero_nomina}
     `;
 
@@ -44,7 +45,8 @@ const login = async (req, res) => {
         nombre: usuario.nombre,
         apellido_paterno: usuario.apellido_paterno,
         rol: usuario.rol,
-        puesto: usuario.puesto
+        puesto: usuario.puesto,
+        departamento: usuario.departamento
       },
       process.env.JWT_SECRET,
       { expiresIn: '8h' }
