@@ -5,7 +5,7 @@ const { connectDB } = require('./config/database');
 const authRoutes = require('./routes/auth');
 const usuariosRoutes = require('./routes/usuarios');
 const qrRoutes = require('./routes/qr');
-
+const departamentosRoutes = require('./routes/departamentos');
 const app = express();
 const puestosRoutes = require('./routes/puestos');
 
@@ -17,6 +17,7 @@ app.use('/api/auth', authRoutes);
 app.use('/api/usuarios', usuariosRoutes);
 app.use('/api/qr', qrRoutes);
 app.use('/api/puestos', puestosRoutes);
+app.use('/api/departamentos', departamentosRoutes);
 
 app.get('/', (req, res) => {
   res.json({ mensaje: 'Servidor de control de acceso funcionando' });
