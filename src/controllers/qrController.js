@@ -9,41 +9,37 @@ const generarQR = async (req, res) => {
   const id_usuario = req.usuario.id;
 
   try {
-    await sql.query`
-      UPDATE tokens_qr SET usado = true 
-      WHERE id_usuario = ${id_usuario} AND usado = false
+    // Verificar si ya existe un token permanente para este usuario
+    const existente = await sql.query`
+      SELECT token FROM tokens_qr WHERE id_usuario = ${id_usuario} AND permanente = true
     `;
 
-    const jti = uuidv4();
-    const fecha_expiracion = new Date(Date.now() + 60 * 1000);
+    let tokenQR;
 
-    const tokenQR = jwt.sign(
-      {
-        jti,
-        id_usuario,
-        numero_nomina: req.usuario.numero_nomina,
-        nombre: req.usuario.nombre,
-        apellido_paterno: req.usuario.apellido_paterno,
-        rol: req.usuario.rol,
-        turno: req.usuario.turno,
-        puesto: req.usuario.puesto
-      },
-      process.env.JWT_SECRET,
-      { expiresIn: '60s' }
-    );
+    if (existente.recordset.length > 0) {
+      tokenQR = existente.recordset[0].token;
+    } else {
+      tokenQR = jwt.sign(
+        {
+          id_usuario,
+          numero_nomina: req.usuario.numero_nomina,
+        },
+        process.env.JWT_SECRET
+        // sin expiresIn = no expira
+      );
 
-    await sql.query`
-      INSERT INTO tokens_qr (id_usuario, token, usado, fecha_expiracion)
-      VALUES (${id_usuario}, ${tokenQR}, false, ${fecha_expiracion})
-    `;
+      await sql.query`
+        INSERT INTO tokens_qr (id_usuario, token, usado, permanente, fecha_expiracion)
+        VALUES (${id_usuario}, ${tokenQR}, false, true, '2099-12-31')
+      `;
+    }
 
     const qrImagen = await qrcode.toDataURL(tokenQR);
 
     res.json({
       mensaje: 'QR generado correctamente',
       qr: qrImagen,
-      expira_en: 60,
-      fecha_expiracion
+      permanente: true
     });
 
   } catch (error) {
@@ -65,25 +61,11 @@ const validarQR = async (req, res) => {
     try {
       decoded = jwt.verify(token, process.env.JWT_SECRET);
     } catch (err) {
-      const tokenBD = await sql.query`SELECT id, id_usuario FROM tokens_qr WHERE token = ${token}`;
-      
-      if (tokenBD.recordset.length > 0) {
-        await sql.query`
-          INSERT INTO accesos (id_usuario, id_token, resultado, motivo_rechazo, registrado_por)
-          VALUES (${tokenBD.recordset[0].id_usuario}, ${tokenBD.recordset[0].id}, 
-                  'DENEGADO', 'QR expirado o inválido', ${req.usuario.id})
-        `;
-      }
-
-      return res.status(401).json({
-        acceso: false,
-        mensaje: 'QR expirado o inválido'
-      });
+      return res.status(401).json({ acceso: false, mensaje: 'QR inválido o no reconocido' });
     }
 
     const tokenBD = await sql.query`
-      SELECT t.id, t.usado, t.fecha_expiracion,
-             u.id as id_usuario, u.nombre, u.apellido_paterno, 
+      SELECT t.id, u.id as id_usuario, u.nombre, u.apellido_paterno, 
              u.activo, r.nombre as rol, p.nombre as puesto,
              d.nombre as departamento
       FROM tokens_qr t
@@ -100,14 +82,6 @@ const validarQR = async (req, res) => {
 
     const registro = tokenBD.recordset[0];
 
-    if (registro.usado) {
-      await sql.query`
-        INSERT INTO accesos (id_usuario, id_token, resultado, motivo_rechazo, registrado_por)
-        VALUES (${registro.id_usuario}, ${registro.id}, 'DENEGADO', 'QR ya utilizado', ${req.usuario.id})
-      `;
-      return res.status(401).json({ acceso: false, mensaje: 'Este QR ya fue utilizado' });
-    }
-
     if (!registro.activo) {
       await sql.query`
         INSERT INTO accesos (id_usuario, id_token, resultado, motivo_rechazo, registrado_por)
@@ -115,10 +89,6 @@ const validarQR = async (req, res) => {
       `;
       return res.status(401).json({ acceso: false, mensaje: 'Usuario inactivo' });
     }
-
-    await sql.query`
-      UPDATE tokens_qr SET usado = true, fecha_uso = NOW() WHERE id = ${registro.id}
-    `;
 
     await sql.query`
       INSERT INTO accesos (id_usuario, id_token, resultado, registrado_por)
@@ -140,8 +110,7 @@ const validarQR = async (req, res) => {
     console.error('Error al validar QR:', error.message);
     res.status(500).json({ mensaje: 'Error interno del servidor' });
   }
-};
-// Obtener historial de accesos
+};// Obtener historial de accesos
 const obtenerHistorial = async (req, res) => {
   try {
     const resultado = await sql.query`
