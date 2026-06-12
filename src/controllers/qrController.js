@@ -84,13 +84,13 @@ const validarQR = async (req, res) => {
     const tokenBD = await sql.query`
       SELECT t.id, t.usado, t.fecha_expiracion,
              u.id as id_usuario, u.nombre, u.apellido_paterno, 
-             u.activo, r.nombre as rol,
-             tu.nombre as turno, p.nombre as puesto
+             u.activo, r.nombre as rol, p.nombre as puesto,
+             d.nombre as departamento
       FROM tokens_qr t
       INNER JOIN usuarios u ON t.id_usuario = u.id
       INNER JOIN roles r ON u.id_rol = r.id
-      LEFT JOIN turnos tu ON u.id_turno = tu.id
       LEFT JOIN puestos p ON u.id_puesto = p.id
+      LEFT JOIN departamentos d ON u.id_departamento = d.id
       WHERE t.token = ${token}
     `;
 
@@ -131,8 +131,8 @@ const validarQR = async (req, res) => {
       empleado: {
         nombre: registro.nombre,
         apellido_paterno: registro.apellido_paterno,
-        turno: registro.turno,
-        puesto: registro.puesto
+        puesto: registro.puesto,
+        departamento: registro.departamento
       }
     });
 
@@ -141,7 +141,6 @@ const validarQR = async (req, res) => {
     res.status(500).json({ mensaje: 'Error interno del servidor' });
   }
 };
-
 // Obtener historial de accesos
 const obtenerHistorial = async (req, res) => {
   try {
