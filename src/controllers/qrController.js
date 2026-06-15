@@ -65,16 +65,16 @@ const validarQR = async (req, res) => {
     }
 
     const tokenBD = await sql.query`
-      SELECT t.id, u.id as id_usuario, u.nombre, u.apellido_paterno, 
-             u.activo, r.nombre as rol, p.nombre as puesto,
-             d.nombre as departamento
-      FROM tokens_qr t
-      INNER JOIN usuarios u ON t.id_usuario = u.id
-      INNER JOIN roles r ON u.id_rol = r.id
-      LEFT JOIN puestos p ON u.id_puesto = p.id
-      LEFT JOIN departamentos d ON u.id_departamento = d.id
-      WHERE t.token = ${token}
-    `;
+  SELECT t.id, u.id as id_usuario, u.nombre, u.apellido_paterno,
+         u.apellido_materno, u.numero_nomina, u.activo, u.foto_url,
+         r.nombre as rol, p.nombre as puesto, d.nombre as departamento
+  FROM tokens_qr t
+  INNER JOIN usuarios u ON t.id_usuario = u.id
+  INNER JOIN roles r ON u.id_rol = r.id
+  LEFT JOIN puestos p ON u.id_puesto = p.id
+  LEFT JOIN departamentos d ON u.id_departamento = d.id
+  WHERE t.token = ${token}
+`;
 
     if (tokenBD.recordset.length === 0) {
       return res.status(404).json({ acceso: false, mensaje: 'QR no encontrado' });
@@ -96,15 +96,19 @@ const validarQR = async (req, res) => {
     `;
 
     res.json({
-      acceso: true,
-      mensaje: 'Acceso permitido',
-      empleado: {
-        nombre: registro.nombre,
-        apellido_paterno: registro.apellido_paterno,
-        puesto: registro.puesto,
-        departamento: registro.departamento
-      }
-    });
+  acceso: true,
+  mensaje: 'Acceso permitido',
+  empleado: {
+    nombre: registro.nombre,
+    apellido_paterno: registro.apellido_paterno,
+    apellido_materno: registro.apellido_materno,
+    numero_nomina: registro.numero_nomina,
+    puesto: registro.puesto,
+    departamento: registro.departamento,
+    rol: registro.rol,
+    foto_url: registro.foto_url,
+  }
+});
 
   } catch (error) {
     console.error('Error al validar QR:', error.message);
