@@ -128,5 +128,72 @@ const obtenerHistorial = async (req, res) => {
     res.status(500).json({ mensaje: 'Error interno del servidor' });
   }
 };
+const obtenerQRUsuario = async (req, res) => {
+  const { id } = req.params;
 
-module.exports = { generarQR, validarQR, obtenerHistorial };
+  try {
+    const existente = await sql.query`
+      SELECT t.token, u.nombre, u.apellido_paterno, u.numero_nomina,
+             p.nombre as puesto, d.nombre as departamento
+      FROM tokens_qr t
+      INNER JOIN usuarios u ON t.id_usuario = u.id
+      LEFT JOIN puestos p ON u.id_puesto = p.id
+      LEFT JOIN departamentos d ON u.id_departamento = d.id
+      WHERE t.id_usuario = ${id} AND t.permanente = true
+    `;
+
+    if (existente.recordset.length === 0) {
+      // Generar QR si no existe
+      const usuario = await sql.query`
+        SELECT u.id, u.numero_nomina, u.nombre, u.apellido_paterno,
+               p.nombre as puesto, d.nombre as departamento
+        FROM usuarios u
+        LEFT JOIN puestos p ON u.id_puesto = p.id
+        LEFT JOIN departamentos d ON u.id_departamento = d.id
+        WHERE u.id = ${id}
+      `;
+
+      if (usuario.recordset.length === 0) {
+        return res.status(404).json({ mensaje: 'Usuario no encontrado' });
+      }
+
+      const u = usuario.recordset[0];
+      const tokenQR = jwt.sign(
+        { id_usuario: u.id, numero_nomina: u.numero_nomina },
+        process.env.JWT_SECRET
+      );
+
+      await sql.query`
+        INSERT INTO tokens_qr (id_usuario, token, usado, permanente, fecha_expiracion)
+        VALUES (${id}, ${tokenQR}, false, true, '2099-12-31')
+      `;
+
+      const qrImagen = await qrcode.toDataURL(tokenQR);
+      return res.json({
+        qr: qrImagen,
+        usuario: { nombre: u.nombre, apellido_paterno: u.apellido_paterno, numero_nomina: u.numero_nomina, puesto: u.puesto, departamento: u.departamento }
+      });
+    }
+
+    const registro = existente.recordset[0];
+    const qrImagen = await qrcode.toDataURL(registro.token);
+
+    res.json({
+      qr: qrImagen,
+      usuario: {
+        nombre: registro.nombre,
+        apellido_paterno: registro.apellido_paterno,
+        numero_nomina: registro.numero_nomina,
+        puesto: registro.puesto,
+        departamento: registro.departamento
+      }
+    });
+
+  } catch (error) {
+    console.error('Error al obtener QR:', error.message);
+    res.status(500).json({ mensaje: 'Error interno del servidor' });
+  }
+};
+
+
+module.exports = { generarQR, validarQR, obtenerHistorial, obtenerQRUsuario };
