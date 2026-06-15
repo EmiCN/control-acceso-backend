@@ -1,7 +1,6 @@
 const express = require('express');
 const router = express.Router();
 const { verificarToken, verificarRol } = require('../middlewares/auth');
-const { generarQR, validarQR, obtenerHistorial } = require('../controllers/qrController');
 const { generarQR, validarQR, obtenerHistorial, obtenerQRUsuario } = require('../controllers/qrController');
 
 router.get('/generar', verificarToken, verificarRol('empleado', 'administrativo', 'administrador', 'policia'), generarQR);
